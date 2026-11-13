@@ -6,6 +6,7 @@ import { api } from './api.js';
 import { esc, lineBadge, safeColor, Pager, ICON, liveIcon, fmtMin, fmtMiles } from './ui.js';
 import { lineStops, departures, terminals } from './arrivals.js';
 import { vehicleRows } from './vehiclesheet.js';
+import { loadAlerts, alertsForLine, alertCards } from './alerts.js';
 
 export function renderLineScreen(root, { net, lineId, stationId = null, onBack, onStation, onVehicle, onShowMap, backLabel = 'Back' }) {
   const line = net.linesById[lineId];
@@ -79,11 +80,16 @@ export function renderLineScreen(root, { net, lineId, stationId = null, onBack, 
   const mapBtn = root.querySelector('#lsMap'); if (mapBtn) mapBtn.onclick = () => onShowMap();
   bind();
 
-  api(`/api/advisories?line_id=${encodeURIComponent(lineId)}`).then(list => {
+  // Service alerts = live incidents + upcoming maintenance from the Alerts Worker, then any manual advisories from D1.
+  Promise.all([
+    loadAlerts().then(list => alertCards(alertsForLine(list, lineId, net))).catch(() => ''),
+    api(`/api/advisories?line_id=${encodeURIComponent(lineId)}`)
+      .then(list => list.map(a => `<div class="adv ${esc(a.severity)}"><strong>${esc(a.title)}</strong><p>${esc(a.body)}</p></div>`).join('')).catch(() => '')
+  ]).then(([fromAlerts, fromAdvisories]) => {
     if (!alive) return;
-    alertsHtml = list.length ? list.map(a => `<div class="adv ${esc(a.severity)}"><strong>${esc(a.title)}</strong><p>${esc(a.body)}</p></div>`).join('') : '';
+    alertsHtml = fromAlerts + fromAdvisories;
     const el = root.querySelector('#lsAlerts'); if (el) el.innerHTML = alertsHtml || '<p class="muted pad">No active alerts.</p>';
-  }).catch(() => {});
+  });
 
   return {
     refresh() { if (!alive) return; pager.update(items()); root.querySelector('#lsExtras').innerHTML = extrasHtml(); bind(); },
