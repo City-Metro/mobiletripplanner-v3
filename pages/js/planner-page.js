@@ -13,12 +13,13 @@ import { MapView } from './mapview.js';
 import { departures, trackVehicle } from './arrivals.js';
 import { vehicleSheet, vehicleRows, trackedMark } from './vehiclesheet.js';
 import { renderLineScreen } from './linescreen.js';
+import { loadPlanAlerts, alertCards } from './alerts.js';
 
 mountChrome('plan');
 
 const app = $('#app'), side = $('#side'), body = $('#planBody'), foot = $('#planFoot');
 const inputs = { from: $('#fromInput'), to: $('#toInput') };
-const S = { from: null, to: null, mode: 'fastest', plan: null, view: 'search', field: 'from', dirty: false, step: 0, loading: false, error: '', t0: Date.now() };
+const S = { from: null, to: null, mode: 'fastest', plan: null, view: 'search', field: 'from', dirty: false, step: 0, loading: false, error: '', t0: Date.now(), alerts: {} };
 let net, view, modeTabs, planToken = 0;
 const wide = () => matchMedia('(min-width: 900px)').matches;
 
@@ -158,9 +159,9 @@ async function planTrip() {
   const token = ++planToken;
   S.loading = true; S.error = ''; S.t0 = Date.now(); setView('options');
   try {
-    const data = await api(`/api/plan?from_station=${S.from.id}&to_station=${S.to.id}`);
+    const [data, alerts] = await Promise.all([api(`/api/plan?from_station=${S.from.id}&to_station=${S.to.id}`), loadPlanAlerts(S.from.id, S.to.id)]);
     if (token !== planToken) return;
-    S.plan = data;
+    S.plan = data; S.alerts = alerts;
   } catch (e) { if (token !== planToken) return; S.plan = null; S.error = e.message; }
   S.loading = false;
   refreshTabs(); render();
@@ -186,6 +187,10 @@ function segbar(r, thin = false) {
 const facts = r => [r.transfers ? `${r.transfers} transfer${r.transfers > 1 ? 's' : ''}` : 'No transfers', r.walkSeconds ? `${fmtMin(r.walkSeconds)} walking` : 'No walking']
   .map(f => `<span class="fact">${esc(f)}</span>`).join('');
 
+// Incidents / maintenance that touch the selected route (from the Alerts Worker).
+const routeAlerts = () => (S.alerts && S.alerts[S.mode]) || [];
+const alertsBlock = () => { const h = alertCards(routeAlerts()); return h ? `<div class="route-alerts">${h}</div>` : ''; };
+
 // ── options ──
 function renderOptions() {
   foot.innerHTML = '';
@@ -196,7 +201,7 @@ function renderOptions() {
   const tm = timing(r), b = boardInfo(r);
   const others = MODES.filter(m => m.id !== S.mode && S.plan.routes[m.id] && S.plan.routes[m.id].found);
 
-  body.innerHTML = `
+  body.innerHTML = alertsBlock() + `
     <article class="route-card" id="routeCard" tabindex="0" role="button" aria-label="Open route guide">
       <div class="rc-top"><div><span class="rc-min">${Math.max(1, Math.round(r.totalSeconds / 60))}</span><span class="rc-unit">min</span></div>
         <div class="rc-times">${fmtClock(tm.leaveAt)} → ${fmtClock(tm.arriveAt)}</div></div>
@@ -238,7 +243,7 @@ function renderDetail() {
   const vehicles = r.legs.filter(l => l.type === 'ride' && !seenLine.has(l.line_id) && seenLine.add(l.line_id))
     .map(l => `<div class="tiles-row"><h3 class="eyebrow">Live vehicles on ${esc(lineOf(l.line_id).name)}</h3><div class="ls-vehs">${vehicleRows(net, l.line_id, l.from.id)}</div></div>`).join('');
 
-  body.innerHTML = `
+  body.innerHTML = alertsBlock() + `
     <div class="summary">
       <h2>Leave at ${fmtClock(tm.leaveAt)}</h2>
       <div class="summary-row"><span>Arrive at ${fmtClock(tm.arriveAt)}</span><span>${Math.max(1, Math.round(r.totalSeconds / 60))} min</span></div>
@@ -415,6 +420,6 @@ $('#sideHandle').onclick = () => { side.dataset.state = side.dataset.state === '
 
   setInterval(async () => { /* keep live arrivals fresh while the guide is open */
     if (document.hidden || !['options', 'detail', 'vehicle', 'nav'].includes(S.view) || !S.plan) return;
-    try { const { refreshVehicles } = await import('./api.js'); await refreshVehicles(net); S.t0 = Date.now(); render(); } catch { /* keep last good data */ }
+    try { const { refreshVehicles } = await import('./api.js'); await refreshVehicles(net); if (S.from && S.to) S.alerts = await loadPlanAlerts(S.from.id, S.to.id); S.t0 = Date.now(); render(); } catch { /* keep last good data */ }
   }, 15000);
 })();
