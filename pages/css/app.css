@@ -110,6 +110,10 @@ button { cursor: pointer; background: none; border: 0; text-align: inherit; }
 .adv { margin: .5rem 14px 0; padding: .65rem .85rem; border-radius: 12px; background: #fffbeb; border-left: 4px solid #d97706; font-size: .85rem; }
 .adv.alert { background: #fef2f2; border-color: var(--red); } .adv.info { background: #eff6ff; border-color: #2563eb; }
 .adv p { color: var(--ink-2); margin-top: 2px; }
+.adv .adv-tag { display: block; font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.adv.upcoming { background: #f5f3ff; border-color: #7c3aed; }
+.adv .adv-time { font-weight: 600; }
+.route-alerts { padding-bottom: .5rem; } .route-alerts .adv:first-child { margin-top: .75rem; }
 .line-pills { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 1rem; }
 .line-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border: 1.5px solid var(--line); border-radius: 999px; font-weight: 700; font-size: .88rem; }
 .line-pill.is-active { background: var(--black); color: #fff; border-color: var(--black); }
