@@ -1,7 +1,7 @@
 // Live incidents + planned maintenance from the City Metro Alerts Worker.
 // The Trip Planner Worker pulls them through a service binding and translates them to planner line / station ids:
 //   GET /api/alerts                    every active alert (+ maintenance starting within ~2 days)
-//   GET /api/plan-alerts?from=&to=     alerts that touch each routing mode of a trip
+//   GET /api/plan-alerts?from=&to=     alerts that touch each routing mode of a trip 
 // Every call fails quietly (returns nothing) so a problem on the Alerts side never breaks the map or planner.
 import { api } from './api.js';
 import { esc } from './ui.js';
